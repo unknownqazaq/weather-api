@@ -4,12 +4,11 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/go-chi/chi/v5"
-
 	"weather-api/internal/client"
 	"weather-api/internal/handler"
 	"weather-api/internal/service"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -32,6 +31,10 @@ func main() {
 	router.Route("/api", func(r chi.Router) {
 		r.Get("/weather", weatherHandler.GetWeather)
 	})
+
+	router.Get("/weather/{city}", weatherHandler.GetWeatherByCity)
+	router.Get("/weather/country/{country}", weatherHandler.GetWeatherByCountry)
+	router.Get("/weather/country/{country}/top", weatherHandler.GetTopWarmestCitiesByCountry)
 
 	addr := ":8080"
 	log.Printf("server started on %s", addr)
