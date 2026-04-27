@@ -44,12 +44,7 @@ func (s *UserService) GetByID(ctx context.Context, id int64) (domain.User, error
 }
 
 func (s *UserService) List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, error) {
-	if filter.Limit <= 0 {
-		filter.Limit = 20
-	}
-	if filter.Offset < 0 {
-		filter.Offset = 0
-	}
+	filter.Normalize()
 	return s.repo.List(ctx, filter)
 }
 

@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type WeatherHistory struct {
 	ID          int64     `db:"id" json:"id"`
@@ -22,4 +25,14 @@ type WeatherHistoryFilter struct {
 	City   string
 	Limit  int
 	Offset int
+}
+
+func (f *WeatherHistoryFilter) Normalize() {
+	if f.Limit <= 0 || f.Limit > 100 {
+		f.Limit = 20
+	}
+	if f.Offset < 0 {
+		f.Offset = 0
+	}
+	f.City = strings.TrimSpace(f.City)
 }

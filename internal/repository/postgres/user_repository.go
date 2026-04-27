@@ -72,7 +72,7 @@ func (r *userRepository) List(ctx context.Context, filter domain.ListUsersFilter
 
 	if filter.Query != "" {
 		builder.WriteString(" AND (LOWER(email) LIKE :query OR LOWER(first_name) LIKE :query OR LOWER(last_name) LIKE :query)")
-		args["query"] = "%" + strings.ToLower(filter.Query) + "%"
+		args["query"] = "%" + filter.Query + "%"
 	}
 
 	builder.WriteString(" ORDER BY created_at DESC LIMIT :limit OFFSET :offset")

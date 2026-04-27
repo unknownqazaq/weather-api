@@ -100,6 +100,7 @@ type HistoryResponse struct {
 
 // GetHistory возвращает историю с фильтрацией (город, лимит, оффсет)
 func (s *UserWeatherService) GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) (*HistoryResponse, error) {
+	filter.Normalize()
 
 	_, err := s.userService.GetByID(ctx, userID)
 	if err != nil {

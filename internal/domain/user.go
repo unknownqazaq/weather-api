@@ -72,3 +72,13 @@ type ListUsersFilter struct {
 	Query          string
 	IncludeDeleted bool
 }
+
+func (f *ListUsersFilter) Normalize() {
+	if f.Limit <= 0 || f.Limit > 100 {
+		f.Limit = 20
+	}
+	if f.Offset < 0 {
+		f.Offset = 0
+	}
+	f.Query = strings.TrimSpace(strings.ToLower(f.Query))
+}
