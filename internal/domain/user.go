@@ -44,3 +44,31 @@ func (in *CreateUserInput) NormalizeAndValidate() error {
 	}
 	return nil
 }
+
+type UpdateUserInput struct {
+	FirstName *string `db:"first_name" json:"first_name"`
+	LastName  *string `db:"last_name" json:"last_name"`
+}
+
+func (in *UpdateUserInput) Validate() error {
+	if in.FirstName != nil {
+		*in.FirstName = strings.TrimSpace(*in.FirstName)
+		if *in.FirstName == "" {
+			return ErrInvalidUserInput
+		}
+	}
+	if in.LastName != nil {
+		*in.LastName = strings.TrimSpace(*in.LastName)
+		if *in.LastName == "" {
+			return ErrInvalidUserInput
+		}
+	}
+	return nil
+}
+
+type ListUsersFilter struct {
+	Limit          int
+	Offset         int
+	Query          string
+	IncludeDeleted bool
+}

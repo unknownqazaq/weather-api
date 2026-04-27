@@ -38,7 +38,7 @@ func MustLoad() Config {
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "127.0.0.1"),
-			Port:     getEnv("DB_PORT", "5433"), // Порт изменен на 5433
+			Port:     getEnv("DB_PORT", "5433"),
 			Name:     getEnv("DB_NAME", "users_db"),
 			User:     getEnv("DB_USER", "postgres"),
 			Password: getEnv("DB_PASSWORD", "postgres"),

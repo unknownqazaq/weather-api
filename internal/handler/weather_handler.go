@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -26,10 +25,6 @@ func NewWeatherHandler(service Service) *WeatherHandler {
 	return &WeatherHandler{
 		service: service,
 	}
-}
-
-type ErrorResponse struct {
-	Error string `json:"error"`
 }
 
 func (h *WeatherHandler) GetWeather(w http.ResponseWriter, r *http.Request) {
@@ -113,13 +108,4 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	}
 
 	writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
-}
-
-func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, `{"error":"failed to encode json"}`, http.StatusInternalServerError)
-	}
 }

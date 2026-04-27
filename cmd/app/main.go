@@ -38,6 +38,14 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
+	userCityRepo := postgres.NewUserCityRepository(db)
+	userCityService := service.NewUserCityService(userCityRepo, userService)
+	userCityHandler := handler.NewUserCityHandler(userCityService)
+
+	weatherHistoryRepo := postgres.NewWeatherHistoryRepository(db)
+	userWeatherService := service.NewUserWeatherService(userService, userCityService, weatherService, weatherHistoryRepo)
+	userWeatherHandler := handler.NewUserWeatherHandler(userWeatherService)
+
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -46,7 +54,17 @@ func main() {
 
 	router.Route("/api/v1/users", func(r chi.Router) {
 		r.Post("/", userHandler.Create)
+		r.Get("/", userHandler.List)
 		r.Get("/{id}", userHandler.GetByID)
+		r.Put("/{id}", userHandler.Update)
+		r.Delete("/{id}", userHandler.Delete)
+
+		r.Post("/{id}/cities", userCityHandler.AddCity)
+		r.Get("/{id}/cities", userCityHandler.ListCities)
+		r.Delete("/{id}/cities/{city_id}", userCityHandler.DeleteCity)
+
+		r.Get("/{id}/weather", userWeatherHandler.GetWeather)
+		r.Get("/{id}/weather/history", userWeatherHandler.GetHistory)
 	})
 
 	router.Route("/api", func(r chi.Router) {
