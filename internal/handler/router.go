@@ -6,7 +6,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// NewRouter собирает все роуты приложения в одном месте
 func NewRouter(
 	weatherHandler *WeatherHandler,
 	userHandler *UserHandler,

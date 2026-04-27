@@ -21,7 +21,6 @@ func NewUserWeatherHandler(service *service.UserWeatherService) *UserWeatherHand
 	return &UserWeatherHandler{service: service}
 }
 
-// GetWeather возвращает погоду по всем городам юзера
 func (h *UserWeatherHandler) GetWeather(w http.ResponseWriter, r *http.Request) {
 	userID, err := parseIDParam(r, "id")
 	if err != nil {
@@ -38,7 +37,6 @@ func (h *UserWeatherHandler) GetWeather(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, result)
 }
 
-// GetHistory возвращает историю погоды пользователя
 func (h *UserWeatherHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	userID, err := parseIDParam(r, "id")
 	if err != nil {

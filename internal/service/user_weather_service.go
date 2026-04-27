@@ -32,13 +32,11 @@ func NewUserWeatherService(
 	}
 }
 
-// UserWeatherResult — структура ответа для GET /users/{id}/weather
 type UserWeatherResult struct {
 	UserID int64         `json:"user_id"`
 	Cities []CityWeather `json:"cities"`
 }
 
-// GetUserWeather параллельно запрашивает погоду по всем городам юзера и сохраняет историю
 func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (*UserWeatherResult, error) {
 
 	_, err := s.userService.GetByID(ctx, userID)
@@ -55,7 +53,6 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 		return &UserWeatherResult{UserID: userID, Cities: make([]CityWeather, 0)}, nil
 	}
 
-	// 3. Параллельный запрос к Weather API (Дополнительное задание выполнено)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	results := make([]CityWeather, 0, len(cities))
@@ -91,14 +88,12 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 	}, nil
 }
 
-// HistoryResponse — структура ответа для истории погоды (из ТЗ)
 type HistoryResponse struct {
 	UserID  int64                   `json:"user_id"`
 	City    string                  `json:"city,omitempty"`
 	History []domain.WeatherHistory `json:"history"`
 }
 
-// GetHistory возвращает историю с фильтрацией (город, лимит, оффсет)
 func (s *UserWeatherService) GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) (*HistoryResponse, error) {
 	filter.Normalize()
 
