@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 	"weather-api/internal/client"
 	"weather-api/internal/config"
@@ -10,21 +13,17 @@ import (
 	"weather-api/internal/repository/postgres"
 	"weather-api/internal/service"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 func main() {
 	cfg := config.MustLoad()
 
-	db, err := sqlx.Connect("postgres", cfg.Database.DSN())
+	db, err := postgres.NewDB(cfg.Database)
 	if err != nil {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 	defer db.Close()
-
-	router := chi.NewRouter()
 
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
@@ -46,36 +45,14 @@ func main() {
 	userWeatherService := service.NewUserWeatherService(userService, userCityService, weatherService, weatherHistoryRepo)
 	userWeatherHandler := handler.NewUserWeatherHandler(userWeatherService)
 
-	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
-
-	router.Route("/api/v1/users", func(r chi.Router) {
-		r.Post("/", userHandler.Create)
-		r.Get("/", userHandler.List)
-		r.Get("/{id}", userHandler.GetByID)
-		r.Put("/{id}", userHandler.Update)
-		r.Delete("/{id}", userHandler.Delete)
-
-		r.Post("/{id}/cities", userCityHandler.AddCity)
-		r.Get("/{id}/cities", userCityHandler.ListCities)
-		r.Delete("/{id}/cities/{city_id}", userCityHandler.DeleteCity)
-
-		r.Get("/{id}/weather", userWeatherHandler.GetWeather)
-		r.Get("/{id}/weather/history", userWeatherHandler.GetHistory)
-	})
-
-	router.Route("/api", func(r chi.Router) {
-		r.Get("/weather", weatherHandler.GetWeather)
-	})
-	router.Get("/weather/{city}", weatherHandler.GetWeatherByCity)
-	router.Get("/weather/country/{country}", weatherHandler.GetWeatherByCountry)
-	router.Get("/weather/country/{country}/top", weatherHandler.GetTopWarmestCitiesByCountry)
+	router := handler.NewRouter(
+		weatherHandler,
+		userHandler,
+		userCityHandler,
+		userWeatherHandler,
+	)
 
 	addr := ":" + cfg.App.Port
-	log.Printf("server started on %s", addr)
 
 	srv := &http.Server{
 		Addr:         addr,
@@ -85,7 +62,23 @@ func main() {
 		IdleTimeout:  cfg.App.IdleTimeout,
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal(err)
+	go func() {
+		log.Printf("server started on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen server: %v", err)
+		}
+	}()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown server error: %v", err)
 	}
+
+	log.Println("server stopped gracefully")
 }
