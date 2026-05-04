@@ -34,6 +34,7 @@ type CreateUserInput struct {
 	PasswordHash string `db:"password_hash" json:"password_hash"`
 	FirstName    string `db:"first_name" json:"first_name"`
 	LastName     string `db:"last_name" json:"last_name"`
+	Role         string `db:"role" json:"role"`
 }
 
 func (in *CreateUserInput) NormalizeAndValidate() error {
@@ -41,6 +42,10 @@ func (in *CreateUserInput) NormalizeAndValidate() error {
 	in.PasswordHash = strings.TrimSpace(in.PasswordHash)
 	in.FirstName = strings.TrimSpace(in.FirstName)
 	in.LastName = strings.TrimSpace(in.LastName)
+	in.Role = strings.TrimSpace(in.Role)
+	if in.Role == "" {
+		in.Role = RoleUser
+	}
 
 	if in.Email == "" || !strings.Contains(in.Email, "@") {
 		return ErrInvalidUserInput

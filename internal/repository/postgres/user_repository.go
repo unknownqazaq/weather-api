@@ -20,8 +20,8 @@ func NewUserRepository(db *sqlx.DB) *userRepository {
 
 func (r *userRepository) Create(ctx context.Context, input *domain.CreateUserInput) (domain.User, error) {
 
-	query := `INSERT INTO users(email, password_hash, first_name, last_name)
-			VALUES(:email, :password_hash, :first_name, :last_name)
+	query := `INSERT INTO users(email, password_hash, first_name, last_name, role)
+			VALUES(:email, :password_hash, :first_name, :last_name, :role)
 			RETURNING *`
 
 	rows, err := r.db.NamedQueryContext(ctx, query, input)
@@ -57,6 +57,20 @@ func (r *userRepository) GetByID(ctx context.Context, id int64) (domain.User, er
 	return user, nil
 
 }
+
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+	query := `SELECT * FROM users WHERE email=$1 AND deleted_at IS NULL`
+	var user domain.User
+	err := r.db.GetContext(ctx, &user, query, email)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result set") {
+			return domain.User{}, domain.ErrUserNotFound
+		}
+		return domain.User{}, err
+	}
+	return user, nil
+}
+
 func (r *userRepository) List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, error) {
 	var builder strings.Builder
 	builder.WriteString("SELECT * FROM users WHERE 1=1")
