@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"weather-api/internal/auth"
 	"weather-api/internal/client"
 	"weather-api/internal/config"
 	"weather-api/internal/handler"
@@ -45,11 +46,17 @@ func main() {
 	userWeatherService := service.NewUserWeatherService(userService, userCityService, weatherService, weatherHistoryRepo)
 	userWeatherHandler := handler.NewUserWeatherHandler(userWeatherService)
 
+	jwtManager := auth.NewJWTManager(cfg.App.JWTSecret, cfg.App.JWTExpiration)
+	authService := service.NewAuthService(userService, userRepo, jwtManager)
+	authHandler := handler.NewAuthHandler(authService)
+
 	router := handler.NewRouter(
 		weatherHandler,
 		userHandler,
 		userCityHandler,
 		userWeatherHandler,
+		authHandler,
+		jwtManager,
 	)
 
 	addr := ":" + cfg.App.Port

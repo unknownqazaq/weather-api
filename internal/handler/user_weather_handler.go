@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"weather-api/internal/auth"
 	"weather-api/internal/domain"
 	"weather-api/internal/service"
 )
@@ -22,11 +23,12 @@ func NewUserWeatherHandler(service *service.UserWeatherService) *UserWeatherHand
 }
 
 func (h *UserWeatherHandler) GetWeather(w http.ResponseWriter, r *http.Request) {
-	userID, err := parseIDParam(r, "id")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 		return
 	}
+	userID := claims.UserID
 
 	result, err := h.service.GetUserWeather(r.Context(), userID)
 	if err != nil {
@@ -38,11 +40,12 @@ func (h *UserWeatherHandler) GetWeather(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserWeatherHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
-	userID, err := parseIDParam(r, "id")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 		return
 	}
+	userID := claims.UserID
 
 	filter := domain.WeatherHistoryFilter{
 		City:   r.URL.Query().Get("city"),

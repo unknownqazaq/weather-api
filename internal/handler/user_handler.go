@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"weather-api/internal/auth"
 	"weather-api/internal/domain"
 )
 
@@ -31,6 +32,22 @@ type UserHandler struct {
 
 func NewUserHandler(service UserService) *UserHandler {
 	return &UserHandler{service: service}
+}
+
+func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
+		return
+	}
+
+	user, err := h.service.GetByID(r.Context(), claims.UserID)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, user)
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {

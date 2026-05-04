@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"weather-api/internal/auth"
 	"weather-api/internal/domain"
 	"weather-api/internal/service"
 )
@@ -28,11 +29,12 @@ func NewUserCityHandler(service *service.UserCityService) *UserCityHandler {
 }
 
 func (h *UserCityHandler) AddCity(w http.ResponseWriter, r *http.Request) {
-	userID, err := parseIDParam(r, "id")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 		return
 	}
+	userID := claims.UserID
 
 	var input domain.AddUserCityInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -51,11 +53,12 @@ func (h *UserCityHandler) AddCity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserCityHandler) ListCities(w http.ResponseWriter, r *http.Request) {
-	userID, err := parseIDParam(r, "id")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 		return
 	}
+	userID := claims.UserID
 
 	cities, err := h.service.ListCities(r.Context(), userID)
 	if err != nil {
@@ -67,11 +70,12 @@ func (h *UserCityHandler) ListCities(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserCityHandler) DeleteCity(w http.ResponseWriter, r *http.Request) {
-	userID, err := parseIDParam(r, "id")
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	claims, ok := auth.UserClaimsFromContext(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 		return
 	}
+	userID := claims.UserID
 
 	cityID, err := parseIDParam(r, "city_id")
 	if err != nil {
