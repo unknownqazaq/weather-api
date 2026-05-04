@@ -5,6 +5,7 @@ REST API сервис для управления пользователями, 
 ## Стек
 
 - Go, go-chi, sqlx, PostgreSQL
+- golang-jwt/jwt/v5 (Аутентификация), bcrypt (Хеширование паролей)
 - Open-Meteo API (погода + геокодинг)
 - CountriesNow API (города по стране)
 - pgx (драйвер PostgreSQL)
@@ -14,12 +15,13 @@ REST API сервис для управления пользователями, 
 ```
 cmd/app/                        — точка входа, graceful shutdown
 internal/
+├── auth/                       — JWT, Middleware, контекст
 ├── config/                     — конфигурация из env
 ├── client/                     — HTTP-клиент к внешним API
 ├── domain/                     — доменные структуры и валидация
 ├── handler/                    — HTTP-хендлеры, роутер, хелперы
 ├── repository/postgres/        — слой работы с БД (sqlx)
-└── service/                    — бизнес-логика
+└── service/                    — бизнес-логика (в т.ч. AuthService)
 ```
 
 ## Запуск
@@ -52,58 +54,80 @@ PostgreSQL запускается через Docker на порту `5433`:
 curl http://localhost:8080/health
 ```
 
-### Users CRUD
+### Auth (Аутентификация)
 
 ```bash
-# Создать пользователя
-curl -X POST http://localhost:8080/api/v1/users \
+# Регистрация
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@test.com","password_hash":"pass","first_name":"Ivan","last_name":"Ivanov"}'
 
-# Список пользователей (пагинация + поиск)
-curl "http://localhost:8080/api/v1/users?limit=10&offset=0&q=Ivan"
-
-# Получить по ID
-curl http://localhost:8080/api/v1/users/1
-
-# Обновить
-curl -X PUT http://localhost:8080/api/v1/users/1 \
+# Логин (получение JWT)
+curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"first_name":"Petr"}'
-
-# Удалить (soft delete)
-curl -X DELETE http://localhost:8080/api/v1/users/1
+  -d '{"email":"user@test.com","password":"pass"}'
 ```
+В ответ придет `token`. Используйте его в заголовке `Authorization: Bearer <token>` для защищенных эндпоинтов.
 
-### User Cities
+### Users Profile
 
 ```bash
-# Добавить город
-curl -X POST http://localhost:8080/api/v1/users/1/cities \
+# Получить свой профиль
+curl http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <token>"
+```
+
+### Users Management (Admin Only)
+Требуется токен администратора.
+
+```bash
+# Список пользователей
+curl "http://localhost:8080/api/v1/users?limit=10&offset=0" \
+  -H "Authorization: Bearer <admin_token>"
+
+# Получить по ID
+curl http://localhost:8080/api/v1/users/1 \
+  -H "Authorization: Bearer <admin_token>"
+
+# Удалить (soft delete)
+curl -X DELETE http://localhost:8080/api/v1/users/1 \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+### User Cities (Protected)
+
+```bash
+# Добавить город (user_id берется из токена)
+curl -X POST http://localhost:8080/api/v1/cities \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"city":"Almaty"}'
 
 # Список городов пользователя
-curl http://localhost:8080/api/v1/users/1/cities
+curl http://localhost:8080/api/v1/cities \
+  -H "Authorization: Bearer <token>"
 
 # Удалить город
-curl -X DELETE http://localhost:8080/api/v1/users/1/cities/1
+curl -X DELETE http://localhost:8080/api/v1/cities/1 \
+  -H "Authorization: Bearer <token>"
 ```
 
-### Weather
+### Weather (Protected & Public)
 
 ```bash
-# Погода по всем городам пользователя (параллельные запросы + кеш 1 мин)
-curl http://localhost:8080/api/v1/users/1/weather
+# Погода по всем городам пользователя (параллельно) - Protected
+curl http://localhost:8080/api/v1/weather \
+  -H "Authorization: Bearer <token>"
 
-# История погоды (фильтр по городу, пагинация)
-curl "http://localhost:8080/api/v1/users/1/weather/history?city=Almaty&limit=10&offset=0"
+# История погоды - Protected
+curl "http://localhost:8080/api/v1/weather/history?city=Almaty&limit=10&offset=0" \
+  -H "Authorization: Bearer <token>"
 
-# Погода по координатам
-curl "http://localhost:8080/api/weather?lat=43.2389&lon=76.8897"
+# Погода по координатам (Public)
+curl "http://localhost:8080/api/weather_coords?lat=43.2389&lon=76.8897"
 
-# Погода по городу
-curl http://localhost:8080/weather/Almaty
+# Погода по городу (Public)
+curl http://localhost:8080/weather/city/Almaty
 
 # Погода по стране (топ-10 городов)
 curl http://localhost:8080/weather/country/Kazakhstan
@@ -114,6 +138,9 @@ curl http://localhost:8080/weather/country/Kazakhstan/top
 
 ## Реализованные фичи
 
+- JWT аутентификация и авторизация (RBAC)
+- Middleware для проверки токена и ролей (`user`, `admin`)
+- Безопасное хеширование паролей (`bcrypt`)
 - CRUD пользователей с soft delete
 - Управление городами пользователя (добавление, список, удаление)
 - Параллельный запрос погоды по всем городам пользователя (goroutines + sync.WaitGroup)
@@ -139,6 +166,7 @@ curl http://localhost:8080/weather/country/Kazakhstan/top
 | password_hash | VARCHAR | Хеш пароля (bcrypt) |
 | first_name | VARCHAR | Имя |
 | last_name | VARCHAR | Фамилия |
+| role | VARCHAR | Роль (`user` или `admin`) |
 | created_at | TIMESTAMP | Дата создания |
 | deleted_at | TIMESTAMP NULL | Дата удаления (soft delete) |
 
