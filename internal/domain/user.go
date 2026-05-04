@@ -13,12 +13,18 @@ var (
 	ErrEmailAlreadyTaken = errors.New("email already exists")
 )
 
+const (
+	RoleUser  = "user"
+	RoleAdmin = "admin"
+)
+
 type User struct {
 	ID           int64      `db:"id" json:"id"`
 	Email        string     `db:"email" json:"email"`
 	PasswordHash string     `db:"password_hash" json:"-"`
 	FirstName    string     `db:"first_name" json:"first_name"`
 	LastName     string     `db:"last_name" json:"last_name"`
+	Role         string     `db:"role" json:"role"`
 	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
 	DeletedAt    *time.Time `db:"deleted_at" json:"deleted_at,omitempty"`
 }

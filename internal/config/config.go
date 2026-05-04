@@ -13,10 +13,12 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Port         string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
+	Port          string
+	ReadTimeout   time.Duration
+	WriteTimeout  time.Duration
+	IdleTimeout   time.Duration
+	JWTSecret     string
+	JWTExpiration time.Duration
 }
 
 type DatabaseConfig struct {
@@ -31,10 +33,12 @@ type DatabaseConfig struct {
 func MustLoad() Config {
 	cfg := Config{
 		App: AppConfig{
-			Port:         getEnv("APP_PORT", "8080"),
-			ReadTimeout:  mustDuration("APP_READ_TIMEOUT", "5s"),
-			WriteTimeout: mustDuration("APP_WRITE_TIMEOUT", "10s"),
-			IdleTimeout:  mustDuration("APP_IDLE_TIMEOUT", "60s"),
+			Port:          getEnv("APP_PORT", "8080"),
+			ReadTimeout:   mustDuration("APP_READ_TIMEOUT", "5s"),
+			WriteTimeout:  mustDuration("APP_WRITE_TIMEOUT", "10s"),
+			IdleTimeout:   mustDuration("APP_IDLE_TIMEOUT", "60s"),
+			JWTSecret:     getEnv("JWT_SECRET", "dev-secret-key-change-me"),
+			JWTExpiration: mustDuration("JWT_EXPIRATION", "24h"),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "127.0.0.1"),
