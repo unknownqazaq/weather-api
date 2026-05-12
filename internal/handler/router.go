@@ -3,7 +3,8 @@ package handler
 import (
 	"net/http"
 	"weather-api/internal/auth"
-	"weather-api/internal/domain"
+	"weather-api/internal/middleware"
+	"weather-api/internal/model"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -30,13 +31,13 @@ func NewRouter(
 	})
 
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(jwtManager))
+		r.Use(middleware.AuthMiddleware(jwtManager))
 
 		r.Get("/users/me", userHandler.GetMe)
 
 		// Admin only routes
 		r.Group(func(r chi.Router) {
-			r.Use(auth.RequireRole(domain.RoleAdmin))
+			r.Use(middleware.RequireRole(model.RoleAdmin))
 			r.Get("/users", userHandler.List)
 			r.Get("/users/{id}", userHandler.GetByID)
 			r.Delete("/users/{id}", userHandler.Delete)

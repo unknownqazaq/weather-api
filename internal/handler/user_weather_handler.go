@@ -5,13 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"weather-api/internal/auth"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 	"weather-api/internal/service"
 )
 
 type UserWeatherService interface {
 	GetUserWeather(ctx context.Context, userID int64) (*service.UserWeatherResult, error)
-	GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) (*service.HistoryResponse, error)
+	GetHistory(ctx context.Context, userID int64, filter dto.WeatherHistoryFilter) (*service.HistoryResponse, error)
 }
 
 type UserWeatherHandler struct {
@@ -47,7 +48,7 @@ func (h *UserWeatherHandler) GetHistory(w http.ResponseWriter, r *http.Request) 
 	}
 	userID := claims.UserID
 
-	filter := domain.WeatherHistoryFilter{
+	filter := dto.WeatherHistoryFilter{
 		City:   r.URL.Query().Get("city"),
 		Limit:  parseIntQuery(r, "limit", 0),
 		Offset: parseIntQuery(r, "offset", 0),
@@ -64,9 +65,9 @@ func (h *UserWeatherHandler) GetHistory(w http.ResponseWriter, r *http.Request) 
 
 func (h *UserWeatherHandler) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, domain.ErrInvalidUserID):
+	case errors.Is(err, model.ErrInvalidUserID):
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, model.ErrUserNotFound):
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
 	default:
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal server error: " + err.Error()})

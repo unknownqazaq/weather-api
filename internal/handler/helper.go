@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"weather-api/internal/domain"
+	"weather-api/internal/model"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -22,7 +22,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func parseIDParam(r *http.Request, paramName string) (int64, error) {
 	id, err := strconv.ParseInt(chi.URLParam(r, paramName), 10, 64)
 	if err != nil || id <= 0 {
-		return 0, domain.ErrInvalidUserID
+		return 0, model.ErrInvalidUserID
 	}
 	return id, nil
 }

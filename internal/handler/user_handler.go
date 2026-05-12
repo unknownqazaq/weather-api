@@ -7,23 +7,24 @@ import (
 	"net/http"
 	"strconv"
 	"weather-api/internal/auth"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 )
 
 type UserService interface {
-	Create(ctx context.Context, input *domain.CreateUserInput) (domain.User, error)
-	GetByID(ctx context.Context, id int64) (domain.User, error)
-	List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, error)
-	Update(ctx context.Context, id int64, input *domain.UpdateUserInput) (domain.User, error)
+	Create(ctx context.Context, input *dto.CreateUserRequest) (model.User, error)
+	GetByID(ctx context.Context, id int64) (model.User, error)
+	List(ctx context.Context, filter dto.ListUsersFilter) ([]model.User, error)
+	Update(ctx context.Context, id int64, input *dto.UpdateUserRequest) (model.User, error)
 	Delete(ctx context.Context, id int64) error
 }
 
 type usersResponse struct {
-	Data []domain.User `json:"data"`
+	Data []dto.UserResponse `json:"data"`
 }
 
 type userResponse struct {
-	Data domain.User `json:"data"`
+	Data dto.UserResponse `json:"data"`
 }
 
 type UserHandler struct {
@@ -47,11 +48,11 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user)
+	writeJSON(w, http.StatusOK, dto.MapUser(user))
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var input domain.CreateUserInput
+	var input dto.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid json body"})
 		return
@@ -62,7 +63,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", "/api/v1/users/"+strconv.FormatInt(user.ID, 10))
-	writeJSON(w, http.StatusCreated, userResponse{Data: user})
+	writeJSON(w, http.StatusCreated, userResponse{Data: dto.MapUser(user)})
 
 }
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -77,11 +78,11 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userResponse{Data: user})
+	writeJSON(w, http.StatusOK, userResponse{Data: dto.MapUser(user)})
 }
 
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	filter := domain.ListUsersFilter{
+	filter := dto.ListUsersFilter{
 		Limit:  parseIntQuery(r, "limit", 20),
 		Offset: parseIntQuery(r, "offset", 0),
 		Query:  r.URL.Query().Get("q"),
@@ -93,7 +94,12 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, usersResponse{Data: users})
+	var mappedUsers []dto.UserResponse
+	for _, u := range users {
+		mappedUsers = append(mappedUsers, dto.MapUser(u))
+	}
+
+	writeJSON(w, http.StatusOK, usersResponse{Data: mappedUsers})
 }
 
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +109,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var input domain.UpdateUserInput
+	var input dto.UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid json body"})
 		return
@@ -115,7 +121,7 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, userResponse{Data: user})
+	writeJSON(w, http.StatusOK, userResponse{Data: dto.MapUser(user)})
 }
 
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -134,11 +140,11 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 func (h *UserHandler) handleError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, domain.ErrInvalidUserID), errors.Is(err, domain.ErrInvalidUserInput):
+	case errors.Is(err, model.ErrInvalidUserID), errors.Is(err, dto.ErrInvalidUserInput):
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, model.ErrUserNotFound):
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
-	case errors.Is(err, domain.ErrEmailAlreadyTaken):
+	case errors.Is(err, model.ErrEmailAlreadyTaken):
 		writeJSON(w, http.StatusConflict, ErrorResponse{Error: err.Error()})
 	default:
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal server error"})

@@ -3,7 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 	"weather-api/internal/service"
 )
 
@@ -16,18 +17,18 @@ func NewAuthHandler(service *service.AuthService) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var input domain.CreateUserInput
+	var input dto.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid json body"})
 		return
 	}
 
-	user, err := h.service.Register(r.Context(), &input)
+	userResponse, err := h.service.Register(r.Context(), &input)
 	if err != nil {
 		switch err {
-		case domain.ErrEmailAlreadyTaken:
+		case model.ErrEmailAlreadyTaken:
 			writeJSON(w, http.StatusConflict, ErrorResponse{Error: err.Error()})
-		case domain.ErrInvalidUserInput:
+		case dto.ErrInvalidUserInput:
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		default:
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "internal server error"})
@@ -35,11 +36,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, user)
+	writeJSON(w, http.StatusCreated, userResponse)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var input service.LoginInput
+	var input dto.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid json body"})
 		return
@@ -47,7 +48,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	authResp, err := h.service.Login(r.Context(), input)
 	if err != nil {
-		if err == domain.ErrUserNotFound {
+		if err == model.ErrUserNotFound {
 			writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid credentials"})
 			return
 		}
