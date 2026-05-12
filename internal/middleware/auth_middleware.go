@@ -1,9 +1,10 @@
-package auth
+package middleware
 
 import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"weather-api/internal/auth"
 )
 
 type ErrorResponse struct {
@@ -18,7 +19,7 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	}
 }
 
-func AuthMiddleware(jwtManager *JWTManager) func(http.Handler) http.Handler {
+func AuthMiddleware(jwtManager *auth.JWTManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -40,7 +41,7 @@ func AuthMiddleware(jwtManager *JWTManager) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := ContextWithUserClaims(r.Context(), claims)
+			ctx := auth.ContextWithUserClaims(r.Context(), claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -49,7 +50,7 @@ func AuthMiddleware(jwtManager *JWTManager) func(http.Handler) http.Handler {
 func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			claims, ok := UserClaimsFromContext(r.Context())
+			claims, ok := auth.UserClaimsFromContext(r.Context())
 			if !ok {
 				writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "unauthorized"})
 				return
