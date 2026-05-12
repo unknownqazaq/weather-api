@@ -3,7 +3,8 @@ package postgres
 import (
 	"context"
 	"strings"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -16,30 +17,30 @@ func NewWeatherHistoryRepository(db *sqlx.DB) *WeatherHistoryRepository {
 	return &WeatherHistoryRepository{db: db}
 }
 
-func (r *WeatherHistoryRepository) Save(ctx context.Context, input *domain.SaveWeatherHistoryInput) (domain.WeatherHistory, error) {
+func (r *WeatherHistoryRepository) Save(ctx context.Context, input *dto.SaveWeatherHistoryRequest) (model.WeatherHistory, error) {
 	query := `
 		INSERT INTO weather_history (user_id, city, temperature, description)
 		VALUES (:user_id, :city, :temperature, :description)
 		RETURNING *
 	`
 
-	var history domain.WeatherHistory
+	var history model.WeatherHistory
 	rows, err := r.db.NamedQueryContext(ctx, query, input)
 	if err != nil {
-		return domain.WeatherHistory{}, err
+		return model.WeatherHistory{}, err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
 		if err := rows.StructScan(&history); err != nil {
-			return domain.WeatherHistory{}, err
+			return model.WeatherHistory{}, err
 		}
 	}
 
 	return history, nil
 }
 
-func (r *WeatherHistoryRepository) GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) ([]domain.WeatherHistory, error) {
+func (r *WeatherHistoryRepository) GetHistory(ctx context.Context, userID int64, filter dto.WeatherHistoryFilter) ([]model.WeatherHistory, error) {
 	var builder strings.Builder
 	builder.WriteString("SELECT * FROM weather_history WHERE user_id = :user_id")
 
@@ -70,14 +71,14 @@ func (r *WeatherHistoryRepository) GetHistory(ctx context.Context, userID int64,
 	}
 	query = r.db.Rebind(query)
 
-	var history []domain.WeatherHistory
+	var history []model.WeatherHistory
 	err = r.db.SelectContext(ctx, &history, query, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	if history == nil {
-		history = make([]domain.WeatherHistory, 0)
+		history = make([]model.WeatherHistory, 0)
 	}
 
 	return history, nil

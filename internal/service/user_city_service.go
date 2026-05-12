@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 )
 
 var (
@@ -12,8 +13,8 @@ var (
 )
 
 type UserCityRepository interface {
-	AddCity(ctx context.Context, input *domain.AddUserCityInput) (domain.UserCity, error)
-	ListCities(ctx context.Context, userID int64) ([]domain.UserCity, error)
+	AddCity(ctx context.Context, input *dto.AddUserCityRequest) (model.UserCity, error)
+	ListCities(ctx context.Context, userID int64) ([]model.UserCity, error)
 	DeleteCity(ctx context.Context, userID int64, cityID int64) error
 }
 
@@ -29,31 +30,31 @@ func NewUserCityService(repo UserCityRepository, userService *UserService) *User
 	}
 }
 
-func (s *UserCityService) AddCity(ctx context.Context, input *domain.AddUserCityInput) (domain.UserCity, error) {
+func (s *UserCityService) AddCity(ctx context.Context, input *dto.AddUserCityRequest) (model.UserCity, error) {
 
 	input.City = strings.TrimSpace(input.City)
 	if input.City == "" {
-		return domain.UserCity{}, domain.ErrInvalidUserInput
+		return model.UserCity{}, dto.ErrInvalidUserInput
 	}
 
 	_, err := s.userService.GetByID(ctx, input.UserID)
 	if err != nil {
-		return domain.UserCity{}, err
+		return model.UserCity{}, err
 	}
 
 	city, err := s.repo.AddCity(ctx, input)
 	if err != nil {
 
 		if strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "SQLSTATE 23505") {
-			return domain.UserCity{}, ErrCityAlreadyExists
+			return model.UserCity{}, ErrCityAlreadyExists
 		}
-		return domain.UserCity{}, err
+		return model.UserCity{}, err
 	}
 
 	return city, nil
 }
 
-func (s *UserCityService) ListCities(ctx context.Context, userID int64) ([]domain.UserCity, error) {
+func (s *UserCityService) ListCities(ctx context.Context, userID int64) ([]model.UserCity, error) {
 
 	_, err := s.userService.GetByID(ctx, userID)
 	if err != nil {

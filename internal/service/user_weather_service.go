@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"sync"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 )
 
 type WeatherHistoryRepository interface {
-	Save(ctx context.Context, input *domain.SaveWeatherHistoryInput) (domain.WeatherHistory, error)
-	GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) ([]domain.WeatherHistory, error)
+	Save(ctx context.Context, input *dto.SaveWeatherHistoryRequest) (model.WeatherHistory, error)
+	GetHistory(ctx context.Context, userID int64, filter dto.WeatherHistoryFilter) ([]model.WeatherHistory, error)
 }
 
 type UserWeatherService struct {
@@ -59,7 +60,7 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 
 	for _, userCity := range cities {
 		wg.Add(1)
-		go func(city domain.UserCity) {
+		go func(city model.UserCity) {
 			defer wg.Done()
 
 			weather, err := s.weatherService.GetWeatherByCity(ctx, city.City)
@@ -71,7 +72,7 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 			results = append(results, *weather)
 			mu.Unlock()
 
-			_, _ = s.historyRepo.Save(ctx, &domain.SaveWeatherHistoryInput{
+			_, _ = s.historyRepo.Save(ctx, &dto.SaveWeatherHistoryRequest{
 				UserID:      userID,
 				City:        weather.City,
 				Temperature: weather.Temperature,
@@ -89,12 +90,12 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 }
 
 type HistoryResponse struct {
-	UserID  int64                   `json:"user_id"`
-	City    string                  `json:"city,omitempty"`
-	History []domain.WeatherHistory `json:"history"`
+	UserID  int64                  `json:"user_id"`
+	City    string                 `json:"city,omitempty"`
+	History []model.WeatherHistory `json:"history"`
 }
 
-func (s *UserWeatherService) GetHistory(ctx context.Context, userID int64, filter domain.WeatherHistoryFilter) (*HistoryResponse, error) {
+func (s *UserWeatherService) GetHistory(ctx context.Context, userID int64, filter dto.WeatherHistoryFilter) (*HistoryResponse, error) {
 	filter.Normalize()
 
 	_, err := s.userService.GetByID(ctx, userID)

@@ -3,7 +3,8 @@ package service
 import (
 	"context"
 	"weather-api/internal/auth"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,16 +15,6 @@ type AuthService struct {
 	jwtManager  *auth.JWTManager
 }
 
-type LoginInput struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type AuthResponse struct {
-	Token string      `json:"token"`
-	User  domain.User `json:"user"`
-}
-
 func NewAuthService(userService *UserService, userRepo UserRepository, jwtManager *auth.JWTManager) *AuthService {
 	return &AuthService{
 		userService: userService,
@@ -32,20 +23,24 @@ func NewAuthService(userService *UserService, userRepo UserRepository, jwtManage
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, input *domain.CreateUserInput) (domain.User, error) {
+func (s *AuthService) Register(ctx context.Context, input *dto.CreateUserRequest) (dto.UserResponse, error) {
 	// The user service hashes the password and creates the user
-	return s.userService.Create(ctx, input)
+	user, err := s.userService.Create(ctx, input)
+	if err != nil {
+		return dto.UserResponse{}, err
+	}
+	return dto.MapUser(user), nil
 }
 
-func (s *AuthService) Login(ctx context.Context, input LoginInput) (*AuthResponse, error) {
+func (s *AuthService) Login(ctx context.Context, input dto.LoginRequest) (*dto.AuthResponse, error) {
 	user, err := s.userRepo.GetByEmail(ctx, input.Email)
 	if err != nil {
-		return nil, domain.ErrUserNotFound
+		return nil, model.ErrUserNotFound
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password))
 	if err != nil {
-		return nil, domain.ErrUserNotFound // To not expose whether the email or password was wrong
+		return nil, model.ErrUserNotFound // To not expose whether the email or password was wrong
 	}
 
 	token, err := s.jwtManager.Generate(user.ID, user.Email, user.Role)
@@ -53,8 +48,8 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*AuthRespons
 		return nil, err
 	}
 
-	return &AuthResponse{
+	return &dto.AuthResponse{
 		Token: token,
-		User:  user,
+		User:  dto.MapUser(user),
 	}, nil
 }

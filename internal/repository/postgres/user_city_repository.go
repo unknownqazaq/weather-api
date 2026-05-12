@@ -2,7 +2,8 @@ package postgres
 
 import (
 	"context"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -15,40 +16,40 @@ func NewUserCityRepository(db *sqlx.DB) *UserCityRepository {
 	return &UserCityRepository{db: db}
 }
 
-func (r *UserCityRepository) AddCity(ctx context.Context, input *domain.AddUserCityInput) (domain.UserCity, error) {
+func (r *UserCityRepository) AddCity(ctx context.Context, input *dto.AddUserCityRequest) (model.UserCity, error) {
 	query := `
 		INSERT INTO user_cities (user_id, city)
 		VALUES (:user_id, :city)
 		RETURNING *
 	`
 
-	var userCity domain.UserCity
+	var userCity model.UserCity
 	rows, err := r.db.NamedQueryContext(ctx, query, input)
 	if err != nil {
-		return domain.UserCity{}, err
+		return model.UserCity{}, err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
 		if err := rows.StructScan(&userCity); err != nil {
-			return domain.UserCity{}, err
+			return model.UserCity{}, err
 		}
 	}
 
 	return userCity, nil
 }
 
-func (r *UserCityRepository) ListCities(ctx context.Context, userID int64) ([]domain.UserCity, error) {
+func (r *UserCityRepository) ListCities(ctx context.Context, userID int64) ([]model.UserCity, error) {
 	query := `SELECT * FROM user_cities WHERE user_id = $1 ORDER BY added_at DESC`
 
-	var cities []domain.UserCity
+	var cities []model.UserCity
 	err := r.db.SelectContext(ctx, &cities, query, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	if cities == nil {
-		cities = make([]domain.UserCity, 0)
+		cities = make([]model.UserCity, 0)
 	}
 
 	return cities, nil

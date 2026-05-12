@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"weather-api/internal/domain"
+	"weather-api/internal/dto"
+	"weather-api/internal/model"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
@@ -18,7 +19,7 @@ func NewUserRepository(db *sqlx.DB) *userRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) Create(ctx context.Context, input *domain.CreateUserInput) (domain.User, error) {
+func (r *userRepository) Create(ctx context.Context, input *dto.CreateUserRequest) (model.User, error) {
 
 	query := `INSERT INTO users(email, password_hash, first_name, last_name, role)
 			VALUES(:email, :password_hash, :first_name, :last_name, :role)
@@ -27,51 +28,51 @@ func (r *userRepository) Create(ctx context.Context, input *domain.CreateUserInp
 	rows, err := r.db.NamedQueryContext(ctx, query, input)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return domain.User{}, domain.ErrEmailAlreadyTaken
+			return model.User{}, model.ErrEmailAlreadyTaken
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
-		var user domain.User
+		var user model.User
 		if err := rows.StructScan(&user); err != nil {
-			return domain.User{}, err
+			return model.User{}, err
 		}
 		return user, nil
 	}
 
-	return domain.User{}, errors.New("failed to insert user")
+	return model.User{}, errors.New("failed to insert user")
 }
 
-func (r *userRepository) GetByID(ctx context.Context, id int64) (domain.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, id int64) (model.User, error) {
 	query := `SELECT * FROM users WHERE id=$1 AND deleted_at IS NULL`
-	var user domain.User
+	var user model.User
 	err := r.db.GetContext(ctx, &user, query, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result set") {
-			return domain.User{}, domain.ErrUserNotFound
+			return model.User{}, model.ErrUserNotFound
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
 	return user, nil
 
 }
 
-func (r *userRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (model.User, error) {
 	query := `SELECT * FROM users WHERE email=$1 AND deleted_at IS NULL`
-	var user domain.User
+	var user model.User
 	err := r.db.GetContext(ctx, &user, query, email)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result set") {
-			return domain.User{}, domain.ErrUserNotFound
+			return model.User{}, model.ErrUserNotFound
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
 	return user, nil
 }
 
-func (r *userRepository) List(ctx context.Context, filter domain.ListUsersFilter) ([]domain.User, error) {
+func (r *userRepository) List(ctx context.Context, filter dto.ListUsersFilter) ([]model.User, error) {
 	var builder strings.Builder
 	builder.WriteString("SELECT * FROM users WHERE 1=1")
 
@@ -97,18 +98,18 @@ func (r *userRepository) List(ctx context.Context, filter domain.ListUsersFilter
 	}
 	query = r.db.Rebind(query)
 
-	var users []domain.User
+	var users []model.User
 	err = r.db.SelectContext(ctx, &users, query, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
 	if users == nil {
-		users = make([]domain.User, 0)
+		users = make([]model.User, 0)
 	}
 	return users, nil
 }
 
-func (r *userRepository) Update(ctx context.Context, id int64, input *domain.UpdateUserInput) (domain.User, error) {
+func (r *userRepository) Update(ctx context.Context, id int64, input *dto.UpdateUserRequest) (model.User, error) {
 	var builder strings.Builder
 	builder.WriteString("UPDATE users SET ")
 
@@ -131,17 +132,17 @@ func (r *userRepository) Update(ctx context.Context, id int64, input *domain.Upd
 
 	query, queryArgs, err := sqlx.Named(builder.String(), args)
 	if err != nil {
-		return domain.User{}, err
+		return model.User{}, err
 	}
 	query = r.db.Rebind(query)
 
-	var user domain.User
+	var user model.User
 	err = r.db.QueryRowxContext(ctx, query, queryArgs...).StructScan(&user)
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result set") {
-			return domain.User{}, domain.ErrUserNotFound
+			return model.User{}, model.ErrUserNotFound
 		}
-		return domain.User{}, err
+		return model.User{}, err
 	}
 	return user, nil
 }
@@ -158,7 +159,7 @@ func (r *userRepository) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return domain.ErrUserNotFound
+		return model.ErrUserNotFound
 	}
 	return nil
 }
