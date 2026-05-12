@@ -15,13 +15,15 @@ REST API сервис для управления пользователями, 
 ```
 cmd/app/                        — точка входа, graceful shutdown
 internal/
-├── auth/                       — JWT, Middleware, контекст
+├── auth/                       — генерация JWT и работа с контекстом
 ├── config/                     — конфигурация из env
 ├── client/                     — HTTP-клиент к внешним API
-├── domain/                     — доменные структуры и валидация
+├── model/                      — структуры данных для БД (сущности)
+├── dto/                        — структуры для API (Data Transfer Object)
+├── middleware/                 — HTTP-middlewares (аутентификация, RBAC)
 ├── handler/                    — HTTP-хендлеры, роутер, хелперы
 ├── repository/postgres/        — слой работы с БД (sqlx)
-└── service/                    — бизнес-логика (в т.ч. AuthService)
+└── service/                    — бизнес-логика и координация
 ```
 
 ## Запуск
@@ -138,6 +140,9 @@ curl http://localhost:8080/weather/country/Kazakhstan/top
 
 ## Реализованные фичи
 
+- **Clean Architecture**: строгое разделение на слои `Handler` → `Service` → `Repository`
+- Разделение сущностей на `Model` (для БД) и `DTO` (для сокрытия приватных данных в ответах API)
+- Выделение middleware в отдельный слой
 - JWT аутентификация и авторизация (RBAC)
 - Middleware для проверки токена и ролей (`user`, `admin`)
 - Безопасное хеширование паролей (`bcrypt`)
