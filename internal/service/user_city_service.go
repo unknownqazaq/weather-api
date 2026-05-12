@@ -13,7 +13,7 @@ var (
 )
 
 type UserCityRepository interface {
-	AddCity(ctx context.Context, input *dto.AddUserCityRequest) (model.UserCity, error)
+	AddCity(ctx context.Context, city *model.UserCity) (model.UserCity, error)
 	ListCities(ctx context.Context, userID int64) ([]model.UserCity, error)
 	DeleteCity(ctx context.Context, userID int64, cityID int64) error
 }
@@ -42,7 +42,12 @@ func (s *UserCityService) AddCity(ctx context.Context, input *dto.AddUserCityReq
 		return model.UserCity{}, err
 	}
 
-	city, err := s.repo.AddCity(ctx, input)
+	cityToCreate := &model.UserCity{
+		UserID: input.UserID,
+		City:   input.City,
+	}
+
+	city, err := s.repo.AddCity(ctx, cityToCreate)
 	if err != nil {
 
 		if strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "SQLSTATE 23505") {

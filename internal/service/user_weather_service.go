@@ -8,7 +8,7 @@ import (
 )
 
 type WeatherHistoryRepository interface {
-	Save(ctx context.Context, input *dto.SaveWeatherHistoryRequest) (model.WeatherHistory, error)
+	Save(ctx context.Context, history *model.WeatherHistory) (model.WeatherHistory, error)
 	GetHistory(ctx context.Context, userID int64, filter dto.WeatherHistoryFilter) ([]model.WeatherHistory, error)
 }
 
@@ -72,7 +72,7 @@ func (s *UserWeatherService) GetUserWeather(ctx context.Context, userID int64) (
 			results = append(results, *weather)
 			mu.Unlock()
 
-			_, _ = s.historyRepo.Save(ctx, &dto.SaveWeatherHistoryRequest{
+			_, _ = s.historyRepo.Save(ctx, &model.WeatherHistory{
 				UserID:      userID,
 				City:        weather.City,
 				Temperature: weather.Temperature,

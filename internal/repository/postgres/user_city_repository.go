@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"weather-api/internal/dto"
 	"weather-api/internal/model"
 
 	"github.com/jmoiron/sqlx"
@@ -16,7 +15,7 @@ func NewUserCityRepository(db *sqlx.DB) *UserCityRepository {
 	return &UserCityRepository{db: db}
 }
 
-func (r *UserCityRepository) AddCity(ctx context.Context, input *dto.AddUserCityRequest) (model.UserCity, error) {
+func (r *UserCityRepository) AddCity(ctx context.Context, userCityToCreate *model.UserCity) (model.UserCity, error) {
 	query := `
 		INSERT INTO user_cities (user_id, city)
 		VALUES (:user_id, :city)
@@ -24,7 +23,7 @@ func (r *UserCityRepository) AddCity(ctx context.Context, input *dto.AddUserCity
 	`
 
 	var userCity model.UserCity
-	rows, err := r.db.NamedQueryContext(ctx, query, input)
+	rows, err := r.db.NamedQueryContext(ctx, query, userCityToCreate)
 	if err != nil {
 		return model.UserCity{}, err
 	}

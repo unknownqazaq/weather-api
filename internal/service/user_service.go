@@ -9,7 +9,7 @@ import (
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, input *dto.CreateUserRequest) (model.User, error)
+	Create(ctx context.Context, user *model.User) (model.User, error)
 	GetByID(ctx context.Context, id int64) (model.User, error)
 	GetByEmail(ctx context.Context, email string) (model.User, error)
 	List(ctx context.Context, filter dto.ListUsersFilter) ([]model.User, error)
@@ -35,7 +35,15 @@ func (s *UserService) Create(ctx context.Context, input *dto.CreateUserRequest) 
 	}
 	input.PasswordHash = string(hashBytes)
 
-	return s.repo.Create(ctx, input)
+	userToCreate := &model.User{
+		Email:        input.Email,
+		PasswordHash: input.PasswordHash,
+		FirstName:    input.FirstName,
+		LastName:     input.LastName,
+		Role:         input.Role,
+	}
+
+	return s.repo.Create(ctx, userToCreate)
 }
 
 func (s *UserService) GetByID(ctx context.Context, id int64) (model.User, error) {

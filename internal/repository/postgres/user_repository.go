@@ -19,13 +19,13 @@ func NewUserRepository(db *sqlx.DB) *userRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) Create(ctx context.Context, input *dto.CreateUserRequest) (model.User, error) {
+func (r *userRepository) Create(ctx context.Context, user *model.User) (model.User, error) {
 
 	query := `INSERT INTO users(email, password_hash, first_name, last_name, role)
 			VALUES(:email, :password_hash, :first_name, :last_name, :role)
 			RETURNING *`
 
-	rows, err := r.db.NamedQueryContext(ctx, query, input)
+	rows, err := r.db.NamedQueryContext(ctx, query, user)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return model.User{}, model.ErrEmailAlreadyTaken

@@ -17,7 +17,7 @@ func NewWeatherHistoryRepository(db *sqlx.DB) *WeatherHistoryRepository {
 	return &WeatherHistoryRepository{db: db}
 }
 
-func (r *WeatherHistoryRepository) Save(ctx context.Context, input *dto.SaveWeatherHistoryRequest) (model.WeatherHistory, error) {
+func (r *WeatherHistoryRepository) Save(ctx context.Context, historyToCreate *model.WeatherHistory) (model.WeatherHistory, error) {
 	query := `
 		INSERT INTO weather_history (user_id, city, temperature, description)
 		VALUES (:user_id, :city, :temperature, :description)
@@ -25,7 +25,7 @@ func (r *WeatherHistoryRepository) Save(ctx context.Context, input *dto.SaveWeat
 	`
 
 	var history model.WeatherHistory
-	rows, err := r.db.NamedQueryContext(ctx, query, input)
+	rows, err := r.db.NamedQueryContext(ctx, query, historyToCreate)
 	if err != nil {
 		return model.WeatherHistory{}, err
 	}
