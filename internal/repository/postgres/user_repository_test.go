@@ -22,6 +22,15 @@ import (
 func setupTestDB(t *testing.T) (*sqlx.DB, func()) {
 	ctx := context.Background()
 
+	home, err := os.UserHomeDir()
+	if err == nil {
+		colimaSocket := filepath.Join(home, ".colima/default/docker.sock")
+		if _, err := os.Stat(colimaSocket); err == nil && os.Getenv("DOCKER_HOST") == "" {
+			os.Setenv("DOCKER_HOST", "unix://"+colimaSocket)
+			os.Setenv("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")
+		}
+	}
+
 	// Locate the init.sql file relative to the test directory
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
