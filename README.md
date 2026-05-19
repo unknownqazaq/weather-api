@@ -159,6 +159,30 @@ curl http://localhost:8080/weather/country/Kazakhstan/top
 - Динамическое построение SQL через strings.Builder
 - Вынос роутера и хелперов в отдельные файлы
 - Строгие типизированные JSON-ответы (без map[string]interface{})
+- **Unit Тестирование (Unit Tests)**: покрытие бизнес-логики (`Service` слой) и обработчиков (`Handler` слой) с помощью библиотеки `testify` (assert, require).
+- **Mock-объекты**: использование `testify/mock` для изоляции тестируемого кода (мокирование `UserRepository` и `UserService`).
+- **Интеграционное тестирование**: автоматическое развертывание PostgreSQL в изолированном Docker-контейнере для тестов репозитория с помощью `testcontainers-go`.
+- **Structured Logging (Структурированное логирование)**: использование высокопроизводительной библиотеки Uber `zap` для логирования.
+- **Request Logger Middleware**: логирование всех HTTP-запросов (method, path, status, duration, request_id) через `zap`.
+
+## Тестирование
+
+Для запуска интеграционных тестов требуется запущенный Docker daemon. Если вы используете Colima на macOS, перед запуском установите переменные окружения:
+
+```bash
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
+
+Запуск всех тестов в проекте (unit + integration):
+```bash
+go test -v ./...
+```
+
+Проверка покрытия кода тестами (coverage) для бизнес-логики:
+```bash
+go test -coverprofile=coverage.out ./internal/service && go tool cover -func=coverage.out
+```
 
 ## Структура базы данных
 
