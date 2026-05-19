@@ -7,6 +7,7 @@ import (
 	"weather-api/internal/model"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 func NewRouter(
@@ -16,8 +17,13 @@ func NewRouter(
 	userWeatherHandler *UserWeatherHandler,
 	authHandler *AuthHandler,
 	jwtManager *auth.JWTManager,
+	logger *zap.Logger,
 ) *chi.Mux {
 	router := chi.NewRouter()
+
+	if logger != nil {
+		router.Use(middleware.RequestLogger(logger))
+	}
 
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

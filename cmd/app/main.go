@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -15,14 +14,18 @@ import (
 	"weather-api/internal/service"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 func main() {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
 	cfg := config.MustLoad()
 
 	db, err := postgres.NewDB(cfg.Database)
 	if err != nil {
-		log.Fatalf("failed to connect to db: %v", err)
+		logger.Fatal("failed to connect to db", zap.Error(err))
 	}
 	defer db.Close()
 
@@ -57,6 +60,7 @@ func main() {
 		userWeatherHandler,
 		authHandler,
 		jwtManager,
+		logger,
 	)
 
 	addr := ":" + cfg.App.Port
@@ -70,9 +74,9 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("server started on %s", addr)
+		logger.Info("server started", zap.String("addr", addr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen server: %v", err)
+			logger.Fatal("listen server", zap.Error(err))
 		}
 	}()
 
@@ -84,8 +88,8 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown server error: %v", err)
+		logger.Error("shutdown server error", zap.Error(err))
 	}
 
-	log.Println("server stopped gracefully")
+	logger.Info("server stopped gracefully")
 }
