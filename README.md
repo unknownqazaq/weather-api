@@ -1,245 +1,149 @@
-# Weather API
+# Weather API (Microservices Version)
 
-REST API сервис для управления пользователями, их городами и получения погоды.
+Проект разделен на 2 независимых микросервиса для обеспечения надежности, масштабируемости и безопасности:
+1. **API Service** — основной бэкенд с бизнес-логикой, аутентификацией, базой данных PostgreSQL и REST API.
+2. **Gateway Service** — API Gateway и прокси-шлюз, который принимает внешние запросы клиентов, проксирует их на `api-service`, а также инкапсулирует работу с внешними интернет API (Open-Meteo и CountriesNow) для предоставления внутренних данных о погоде.
 
 ## Стек
 
-- Go, go-chi, sqlx, PostgreSQL
-- golang-jwt/jwt/v5 (Аутентификация), bcrypt (Хеширование паролей)
-- Open-Meteo API (погода + геокодинг)
-- CountriesNow API (города по стране)
-- pgx (драйвер PostgreSQL)
+- **Go** (go-chi, sqlx, pgx)
+- **PostgreSQL 16**
+- **Docker & Docker Compose**
+- **Zap** (Uber) для структурированного логирования
+- **Testcontainers-go** для интеграционных тестов БД
 
-## Архитектура
+---
 
-```
-cmd/app/                        — точка входа, graceful shutdown
-internal/
-├── auth/                       — генерация JWT и работа с контекстом
-├── config/                     — конфигурация из env
-├── client/                     — HTTP-клиент к внешним API
-├── model/                      — структуры данных для БД (сущности)
-├── dto/                        — структуры для API (Data Transfer Object)
-├── middleware/                 — HTTP-middlewares (аутентификация, RBAC)
-├── handler/                    — HTTP-хендлеры, роутер, хелперы
-├── repository/postgres/        — слой работы с БД (sqlx)
-└── service/                    — бизнес-логика и координация
+## Архитектура и взаимодействие
+
+```mermaid
+graph TD
+    Client[Client / cURL] -->|Port 8081| Gateway[Gateway Service]
+    Gateway -->|Forward /auth, /api| API[API Service - Port 8080]
+    API -->|Get Weather /external/...| Gateway
+    Gateway -->|HTTP GET/POST| ExtAPI[External APIs: Open-Meteo / CountriesNow]
+    API -->|Read/Write| Postgres[(PostgreSQL - Port 5433)]
 ```
 
-## Запуск
+1. **Единая точка входа**: Клиенты отправляют запросы на порт `8081` (Gateway Service).
+2. **Маршрутизация и проксирование**: Gateway Service перенаправляет все стандартные API-запросы (`/auth/*`, `/api/*`, `/weather/city/*` и т.д.) во внутреннюю сеть Docker Compose на `api-service:8080` с помощью `httputil.ReverseProxy`.
+3. **Изоляция внешних API**: `api-service` не ходит в интернет напрямую. Когда ему требуется погода или координаты городов, он вызывает эндпоинты Gateway Service по адресу `http://gateway-service:8081/external/...`. Gateway Service делает запросы во внешние API с настроенным таймаутом.
+4. **Хранилище данных**: `api-service` сохраняет историю запросов и управляет пользователями в PostgreSQL.
+
+---
+
+## Структура проекта
+
+```
+weather-api/
+├── docker-compose.yml              — общая конфигурация Docker Compose
+│
+├── api-service/                    — Сервис бизнес-логики и базы данных
+│   ├── Dockerfile
+│   ├── go.mod                      — модуль weather-api
+│   ├── cmd/app/main.go             — точка входа API Service
+│   ├── internal/                   — внутренняя логика (auth, config, handler, service, repository, client)
+│   └── sql/                        — SQL скрипты инициализации БД
+│
+└── gateway-service/                — Сервис-шлюз и прокси внешних API
+    ├── Dockerfile
+    ├── go.mod                      — модуль weather-api/gateway-service
+    ├── cmd/main.go                 — точка входа Gateway Service
+    └── internal/client/            — клиент к внешним API Open-Meteo и CountriesNow
+```
+
+---
+
+## Запуск проекта
+
+Проект запускается одной командой из корня репозитория:
 
 ```bash
-docker-compose up -d
-go mod tidy
-go run ./cmd/app
+docker-compose up --build
 ```
+*(Или `docker compose up --build` в зависимости от версии Docker CLI)*
 
-Сервер стартует на `http://localhost:8080`
+После запуска будут работать:
+- **API Service Health check**: `GET http://localhost:8080/health`
+- **Gateway Service Health check**: `GET http://localhost:8081/health`
+- **Все эндпоинты через Gateway**: `http://localhost:8081` (проксирует на API Service)
+- **Прямой доступ к API Service (опционально)**: `http://localhost:8080`
 
-## База данных
-
-PostgreSQL запускается через Docker на порту `5433`:
-
-| Параметр | Значение   |
-|----------|------------|
-| Host     | localhost  |
-| Port     | 5433       |
-| Database | users_db   |
-| User     | postgres   |
-| Password | postgres   |
+---
 
 ## API Endpoints
+
+Все запросы можно выполнять через шлюз на порту `8081`:
 
 ### Healthcheck
 
 ```bash
-curl http://localhost:8080/health
+curl -i http://localhost:8081/health
 ```
 
 ### Auth (Аутентификация)
 
 ```bash
 # Регистрация
-curl -X POST http://localhost:8080/auth/register \
+curl -i -X POST http://localhost:8081/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@test.com","password_hash":"pass","first_name":"Ivan","last_name":"Ivanov"}'
 
-# Логин (получение JWT)
-curl -X POST http://localhost:8080/auth/login \
+# Логин (получение JWT токена)
+curl -i -X POST http://localhost:8081/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@test.com","password":"pass"}'
 ```
-В ответ придет `token`. Используйте его в заголовке `Authorization: Bearer <token>` для защищенных эндпоинтов.
+В ответ вернется `token`. Передавайте его в заголовке `Authorization: Bearer <token>`.
 
-### Users Profile
-
-```bash
-# Получить свой профиль
-curl http://localhost:8080/api/v1/users/me \
-  -H "Authorization: Bearer <token>"
-```
-
-### Users Management (Admin Only)
-Требуется токен администратора.
+### Управление городами пользователя (Защищено JWT)
 
 ```bash
-# Список пользователей
-curl "http://localhost:8080/api/v1/users?limit=10&offset=0" \
-  -H "Authorization: Bearer <admin_token>"
-
-# Получить по ID
-curl http://localhost:8080/api/v1/users/1 \
-  -H "Authorization: Bearer <admin_token>"
-
-# Удалить (soft delete)
-curl -X DELETE http://localhost:8080/api/v1/users/1 \
-  -H "Authorization: Bearer <admin_token>"
-```
-
-### User Cities (Protected)
-
-```bash
-# Добавить город (user_id берется из токена)
-curl -X POST http://localhost:8080/api/v1/cities \
+# Добавить город
+curl -i -X POST http://localhost:8081/api/v1/cities \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"city":"Almaty"}'
 
-# Список городов пользователя
-curl http://localhost:8080/api/v1/cities \
-  -H "Authorization: Bearer <token>"
-
-# Удалить город
-curl -X DELETE http://localhost:8080/api/v1/cities/1 \
+# Получить список городов
+curl -i http://localhost:8081/api/v1/cities \
   -H "Authorization: Bearer <token>"
 ```
 
-### Weather (Protected & Public)
+### Получение погоды
 
 ```bash
-# Погода по всем городам пользователя (параллельно) - Protected
-curl http://localhost:8080/api/v1/weather \
+# Погода по всем добавленным городам пользователя (goroutines + WaitGroup)
+curl -i http://localhost:8081/api/v1/weather \
   -H "Authorization: Bearer <token>"
 
-# История погоды - Protected
-curl "http://localhost:8080/api/v1/weather/history?city=Almaty&limit=10&offset=0" \
+# История погоды из PostgreSQL с пагинацией
+curl -i "http://localhost:8081/api/v1/weather/history?city=Almaty&limit=5" \
   -H "Authorization: Bearer <token>"
 
-# Погода по координатам (Public)
-curl "http://localhost:8080/api/weather_coords?lat=43.2389&lon=76.8897"
-
-# Погода по городу (Public)
-curl http://localhost:8080/weather/city/Almaty
-
-# Погода по стране (топ-10 городов)
-curl http://localhost:8080/weather/country/Kazakhstan
-
-# Топ-3 самых теплых города страны
-curl http://localhost:8080/weather/country/Kazakhstan/top
+# Публичные запросы погоды по названию города
+curl -i http://localhost:8081/weather/city/Almaty
 ```
 
-## Реализованные фичи
-
-- **Clean Architecture**: строгое разделение на слои `Handler` → `Service` → `Repository`
-- Разделение сущностей на `Model` (для БД) и `DTO` (для сокрытия приватных данных в ответах API)
-- Выделение middleware в отдельный слой
-- JWT аутентификация и авторизация (RBAC)
-- Middleware для проверки токена и ролей (`user`, `admin`)
-- Безопасное хеширование паролей (`bcrypt`)
-- CRUD пользователей с soft delete
-- Управление городами пользователя (добавление, список, удаление)
-- Параллельный запрос погоды по всем городам пользователя (goroutines + sync.WaitGroup)
-- Автоматическое сохранение истории запросов погоды в БД
-- Фильтрация истории по городу с пагинацией (limit/offset)
-- Поиск пользователей по имени/email с пагинацией
-- Нормализация входных параметров (Normalize)
-- Graceful Shutdown (корректная остановка сервера)
-- Connection Pool для PostgreSQL (pgx)
-- Защита от SQL-инъекций (sqlx.Named + Rebind)
-- Динамическое построение SQL через strings.Builder
-- Вынос роутера и хелперов в отдельные файлы
-- Строгие типизированные JSON-ответы (без map[string]interface{})
-- **Unit Тестирование (Unit Tests)**: покрытие бизнес-логики (`Service` слой) и обработчиков (`Handler` слой) с помощью библиотеки `testify` (assert, require).
-- **Mock-объекты**: использование `testify/mock` для изоляции тестируемого кода (мокирование `UserRepository` и `UserService`).
-- **Интеграционное тестирование**: автоматическое развертывание PostgreSQL в изолированном Docker-контейнере для тестов репозитория с помощью `testcontainers-go`.
-- **Structured Logging (Структурированное логирование)**: использование высокопроизводительной библиотеки Uber `zap` для логирования.
-- **Request Logger Middleware**: логирование всех HTTP-запросов (method, path, status, duration, request_id) через `zap`.
+---
 
 ## Тестирование
 
-Для запуска интеграционных тестов требуется запущенный Docker daemon. Если вы используете Colima на macOS, перед запуском установите переменные окружения:
-
+### Unit-тесты и интеграционные тесты для API Service
+Для интеграционных тестов требуется запущенный Docker daemon. Если вы используете Colima на macOS:
 ```bash
 export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 ```
 
-Запуск всех тестов в проекте (unit + integration):
+Запуск тестов в `api-service`:
 ```bash
+cd api-service
+CGO_ENABLED=0 go test -v ./...
+```
+
+Запуск тестов в `gateway-service`:
+```bash
+cd gateway-service
 go test -v ./...
-```
-
-Проверка покрытия кода тестами (coverage) для бизнес-логики:
-```bash
-go test -coverprofile=coverage.out ./internal/service && go tool cover -func=coverage.out
-```
-
-## Структура базы данных
-
-### Таблица `users`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| id | SERIAL PRIMARY KEY | ID пользователя |
-| email | VARCHAR UNIQUE | Email (уникальный) |
-| password_hash | VARCHAR | Хеш пароля (bcrypt) |
-| first_name | VARCHAR | Имя |
-| last_name | VARCHAR | Фамилия |
-| role | VARCHAR | Роль (`user` или `admin`) |
-| created_at | TIMESTAMP | Дата создания |
-| deleted_at | TIMESTAMP NULL | Дата удаления (soft delete) |
-
-### Таблица `user_cities`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| id | SERIAL PRIMARY KEY | ID записи |
-| user_id | INT REFERENCES users | ID пользователя |
-| city | VARCHAR | Название города |
-| added_at | TIMESTAMP | Дата добавления |
-
-### Таблица `weather_history`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| id | SERIAL PRIMARY KEY | ID записи |
-| user_id | INT REFERENCES users | ID пользователя |
-| city | VARCHAR | Город |
-| temperature | DECIMAL | Температура (°C) |
-| description | VARCHAR | Описание погоды |
-| requested_at | TIMESTAMP | Время запроса |
-
-### Пример данных
-
-```
-users:
- id |        email        | first_name | last_name | deleted_at
-----+---------------------+------------+-----------+------------
-  1 | test@test.com       | TestNamed  | Ivanov    |
-  2 | test2@test.com      | Anna-Maria | Karenina  | (удалён)
-  6 | pgx_test@test.com   | PGX        | Test      |
-
-user_cities:
- id | user_id |  city
-----+---------+--------
-  1 |       1 | Almaty
-  2 |       2 | Astana
-  5 |       6 | Tokyo
-
-weather_history:
- id | user_id |  city  | temperature |      description
-----+---------+--------+-------------+-----------------------
-  1 |       1 | Almaty |       12.40 | Переменная облачность
-  3 |       2 | Astana |        3.00 | Ясно
-  7 |       6 | Tokyo  |       13.70 | Дождь
 ```
