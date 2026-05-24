@@ -19,6 +19,7 @@ type AppConfig struct {
 	IdleTimeout   time.Duration
 	JWTSecret     string
 	JWTExpiration time.Duration
+	GatewayURL    string
 }
 
 type DatabaseConfig struct {
@@ -39,6 +40,7 @@ func MustLoad() Config {
 			IdleTimeout:   mustDuration("APP_IDLE_TIMEOUT", "60s"),
 			JWTSecret:     getEnv("JWT_SECRET", "dev-secret-key-change-me"),
 			JWTExpiration: mustDuration("JWT_EXPIRATION", "24h"),
+			GatewayURL:    getEnv("GATEWAY_URL", "http://localhost:8081"),
 		},
 		Database: DatabaseConfig{
 			Host:     getEnv("DB_HOST", "127.0.0.1"),

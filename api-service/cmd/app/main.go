@@ -33,7 +33,7 @@ func main() {
 		Timeout: 10 * time.Second,
 	}
 
-	weatherClient := client.NewWeatherClient(httpClient)
+	weatherClient := client.NewWeatherClient(httpClient, cfg.App.GatewayURL)
 	weatherService := service.NewWeatherService(weatherClient)
 	weatherHandler := handler.NewWeatherHandler(weatherService)
 
