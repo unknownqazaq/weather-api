@@ -1,2 +1,9 @@
-.DS_Storetmp_app
-test_api.sh
+.DS_Store
+.env
+.env.local
+*.exe
+*.test
+bin/
+tmp/
+api-service/api-service
+gateway-service/gateway-service
